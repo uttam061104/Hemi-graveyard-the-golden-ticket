@@ -8,7 +8,7 @@ Year 3026. The dead of Hemi still refuse to rest. Open the five graves, survive 
 
 ## ▶️ Play
 
-**Live:** _add your Vercel URL here_
+**Live:** 
 
 1. Open the link on a desktop/laptop (keyboard + mouse).
 2. Connect **MetaMask** or **Rabby** — the game adds/switches to **Hemi Mainnet** automatically.
@@ -53,14 +53,7 @@ npm start        # serves http://localhost:8000
 
 Wallets don't work on pages opened as `file://` — use the local server (or VS Code Live Server).
 
-## 🚀 Deploy (Vercel)
-
-Static site, no build step.
-
-1. Push this repo to GitHub.
-2. In Vercel: **Add New → Project → import the repo**.
-3. Framework preset: **Other**. Build command: _empty_. Output directory: _empty / `.`_
-4. Deploy. `vercel.json` already sets caching and security headers.
+## 🚀 Deployed on (Vercel)
 
 ## 🧱 Tech
 
