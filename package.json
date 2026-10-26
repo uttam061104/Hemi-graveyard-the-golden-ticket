@@ -1,0 +1,8 @@
+{
+  "name": "hemi-graveyard",
+  "version": "2.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Hemi's Graveyard - free-to-play browser FPS (Three.js) with onchain scores on Hemi Mainnet. Static site, no build step.",
+  "scripts": { "start": "npx serve . -l 8000" }
+}

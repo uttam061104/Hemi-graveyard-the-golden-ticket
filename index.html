@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hemi's Graveyard</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game"></div>
+<div id="scan"></div>
+
+<div id="lobby" class="ovl">
+  <div class="lbox">
+    <div class="logo-row"><img id="logoImg" alt="Hemi"></div>
+    <h1>HEMI’S<br>GRAVEYARD</h1>
+    <label class="f" for="pname">Your name</label>
+    <input id="pname" type="text" maxlength="18" placeholder="Enter your name, mortal" autocomplete="off">
+    <label class="f">Wallet</label>
+    <div class="wrow"><button id="btnMM" class="btn ghost">METAMASK</button><button id="btnRabby" class="btn ghost">RABBY</button></div>
+    <div id="walletStatus"></div>
+    <label class="chk"><input type="checkbox" id="voiceChk" checked> Spoken ghost voice (needs sound on)</label>
+    <button id="btnEnter" class="btn" disabled>CONNECT WALLET FIRST</button>
+    <div class="help">
+      <div><b>W A S D</b>move · Shift run</div>
+      <div><b>Mouse / Space</b>look · shoot</div>
+      <div><b>E · R</b>open grave · reload</div>
+    </div>
+  </div>
+</div>
+
+<div id="hud" class="ovl hide">
+  <div id="hpWrap" class="card">
+    <div class="who"><b id="hName">Player</b><span id="hWallet"></span></div>
+    <div class="bar"><div id="hpBar"></div></div>
+    <div class="row"><span>HP <b id="hpText">100</b></span><span>Graves <b id="graves">0</b>/5</span><span>Ghosts slain <b id="kills">0</b></span></div>
+  </div>
+  <div id="obj" class="card"><div id="objTitle"></div><div id="objSub"></div><div id="objDist"></div></div>
+  <div id="bossBar" class="hide"><div class="nm">RICKOALA</div><div class="bar"><div id="bossFill"></div></div><div id="bossHp"></div></div>
+  <div id="miniWrap"><canvas id="mini" width="190" height="190"></canvas><div id="miniLbl">CEMETERY MAP</div></div>
+  <div id="weapon" class="card"><div id="wName"></div><div id="ammo"></div><div id="wLevel"><i></i><i></i><i></i><i></i><i></i></div></div>
+  <div id="sub"></div>
+  <div id="banner"><div id="bTitle"></div><div id="bSub"></div></div>
+  <div id="cross"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i><i class="dot"></i></div>
+  <div id="hit"></div>
+  <div id="prompt"></div>
+</div>
+<div id="vig"></div><div id="flash"></div>
+
+<div id="pause" class="ovl hide"><h2>PAUSED</h2><div>Click to return to the graveyard</div><div style="margin-top:10px;color:#8f9ac0;font-size:13px">The ghosts will wait. They have time.</div></div>
+
+<div id="end" class="ovl hide">
+  <div class="ebox">
+    <h2 id="eTitle"></h2><div id="eSub"></div>
+    <div id="eStats"></div>
+    <button id="btnSubmit" class="btn">SUBMIT SCORE ON-CHAIN (HEMI MAINNET)</button>
+    <div id="txStatus"></div>
+    <button id="btnAgain" class="btn ghost">PLAY AGAIN</button>
+  </div>
+</div>
+<div class="mob">Hemi’s Graveyard needs a keyboard and mouse.<br>Please open it on a desktop or laptop browser.</div>
+
+<script src="js/images.js"></script>
+<script src="js/boot.js"></script>
+<script src="lib/three.min.js"></script>
+<script src="js/voices.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/chain.js"></script>
+<script src="js/world.js"></script>
+<script src="js/horror.js"></script>
+<script src="js/ghosts.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
