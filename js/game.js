@@ -140,7 +140,7 @@
   const mult = i => Math.pow(1.3, i);            // ghost HP multiplier: x1, 1.3, 1.7, 2.2, 2.9
   const dmgMult = i => 1 + 0.4 * i;              // ghost damage multiplier: x1 .. x2.6
   const orbSpread = i => Math.max(0.15, 1.5 - i * 0.35); // orb aim error (lower = more accurate)
-  const BOSS_HP = 4000;
+  const BOSS_HP =4000;
   const vols = [];
   const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 
@@ -175,6 +175,13 @@
     G.subT = (ms || 4200) / 1000;
     if (voice !== false) SFX.say(text, Math.min(6, (ms || 4200) / 1000));
   }
+  /* Shows the subtitle and speaks the line; resolves only when the voice has FINISHED (so lines never cut each other off). */
+  function sayWait(text) {
+    const el = $('sub'); el.textContent = text; el.classList.add('on');
+    G.subT = 999;                                         // keep subtitle up until the voice ends
+    return Promise.resolve(SFX.say(text, 6)).then(() => { G.subT = 1.2; });
+  }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
   function banner(title, sub, ms, color) {
     const b = $('banner'); $('bTitle').textContent = title; $('bSub').textContent = sub || '';
     b.style.setProperty('--bc', color || '#ff6a00'); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
@@ -240,7 +247,27 @@
     if ($('btnEnter').disabled) return;
     G.name = $('pname').value.trim().slice(0, 18);
     try { localStorage.setItem('hg_name', G.name); } catch (e) { }
-    startGame();
+    if (practice || !Chain.REQUIRE_START_TX) { startGame(); return; }
+    // Start-of-run transaction on Hemi Mainnet (0 ETH, only network gas)
+    const btn = $('btnEnter'); btn.disabled = true; btn.textContent = 'CONFIRM IN WALLET…';
+    walletMsg('', 'Confirm the <b>start transaction</b> in your wallet (calls the game contract, 0 ETH — you only pay the tiny network gas).');
+    const fail = html => { btn.disabled = false; refreshEnter(); walletMsg('err', html); };
+    Chain.startGameTx(G.name).then(async r => {
+      const link = ' <a target="_blank" rel="noopener" href="' + Chain.explorerTx(r.hash) + '">View tx ↗</a>';
+      btn.textContent = 'CONFIRMING ON HEMI…';
+      walletMsg('', 'Start transaction sent. Waiting for confirmation on Hemi Mainnet…' + link);
+      const rc = await Chain.waitReceipt(r.hash, 60);            // up to ~2.5 minutes
+      if (!rc) return fail('Still not confirmed. The game starts only after the transaction succeeds — check the link, then press Enter again.' + link);
+      if (rc.status !== '0x1' && rc.status !== 1) return fail('The start transaction failed on-chain, so the game was not started. Press Enter to try again.' + link);
+      walletMsg('ok', 'Start transaction confirmed on Hemi Mainnet ✔' + link);
+      startGame();
+      // the browser may refuse mouse-capture after the wait; if so show the "click to continue" screen
+      setTimeout(() => { if (!G.locked) { G.paused = true; $('pause').classList.remove('hide'); } }, 400);
+    }).catch(e => {
+      btn.disabled = false; refreshEnter();
+      if (e && e.code === 4001) walletMsg('err', 'Start transaction rejected in the wallet. Confirm it to play (or use ?practice for no-wallet mode).');
+      else walletMsg('err', 'Could not send the start transaction: ' + ((e && e.message) || e));
+    });
   });
 
   /* ---------- start / intro ---------- */
@@ -252,9 +279,23 @@
     G.state = 'intro'; G.introT = 0; G.startTime = performance.now();
     G.p.x = 0; G.p.z = 96; G.p.yaw = 0; G.p.pitch = 0; G.p.hp = 100;
     G.wl = 1; G.ammo = WEAPONS[1].mag; setWeaponVisual(1);
-    SFX.gateOpen(); setTimeout(() => SFX.thunder(), 900);
-    say(INTRO_LINES[0], 5200);
-    setTimeout(() => G.state === 'intro' && say(INTRO_LINES[1], 5000), 5400);
+    G.gateOpening = false; G.gateT = 0;                    // gate stays CLOSED until Rick's first line has finished
+    if (world.gateCollider && world.colliders.indexOf(world.gateCollider) < 0) world.colliders.push(world.gateCollider);
+    setTimeout(() => SFX.thunder(), 900);
+    // Intro dialogue plays one line AFTER the other; the gate/walk-in waits until both lines have finished.
+    G.introDone = false; const tok = G.introTok = (G.introTok || 0) + 1;
+    (async () => {
+      await sleep(900);
+      for (const i of [0, 1]) {
+        if (G.introTok !== tok || G.state !== 'intro') return;
+        await sayWait(INTRO_LINES[i]);
+        if (i === 0 && G.introTok === tok && G.state === 'intro') {   // first line finished -> NOW the gate opens
+          G.gateOpening = true; SFX.gateOpen(); updateObjective();
+        }
+        await sleep(700);                                  // small pause between lines
+      }
+      if (G.introTok === tok) { G.introDone = true; if (G.state === 'intro') updateObjective(); }
+    })();
     requestLock();
     updateObjective();
   }
@@ -417,7 +458,7 @@
   /* ---------- rounds ---------- */
   function updateObjective() {
     const t = world.specials[G.activeIdx], ot = $('objTitle'), os = $('objSub');
-    if (G.state === 'intro') { ot.textContent = 'Enter the cemetery'; os.textContent = 'Walk through the gate'; }
+    if (G.state === 'intro') { ot.textContent = 'Enter the cemetery'; os.textContent = G.gateOpening ? 'Walk through the gate' : 'Listen… the gate will open'; }
     else if (G.state === 'explore') { ot.textContent = 'Open ' + t.name + '’s grave  (#' + t.rank + ')'; os.textContent = 'Follow the orange light and the minimap'; }
     else if (G.state === 'opening') { ot.textContent = 'The grave is opening…'; os.textContent = 'Brace yourself'; }
     else if (G.state === 'fight') { const n = G.ghosts.length + (G.round ? Math.max(0, G.round.quota - G.round.spawned) : 0); ot.textContent = G.round && G.round.boss ? 'DESTROY RICKOALA' : 'Destroy every ghost'; os.textContent = n + ' remaining  ·  aim for the heads'; }
@@ -808,12 +849,16 @@
     if (G.flashAdd) { L.hemi.intensity -= G.flashAdd * dt * 6; G.flashAdd -= dt * 6; if (G.flashAdd <= 0) { G.flashAdd = 0; applyDayLights(); } }
     // gate
     if (G.state === 'intro' || G.state === 'lobby') {
-      const o = G.state === 'intro' ? smooth(clamp((G.introT - 0.4) / 3.2, 0, 1)) : 0;
+      if (G.state === 'intro' && G.gateOpening) {
+        G.gateT += dt;
+        if (G.gateT >= 3.2) { const gi = world.colliders.indexOf(world.gateCollider); if (gi >= 0) world.colliders.splice(gi, 1); }   // gate fully open -> remove the invisible wall
+      }
+      const o = G.state === 'intro' ? smooth(clamp(G.gateT / 3.2, 0, 1)) : 0;
       world.gate.left.rotation.y = o * 1.5; world.gate.right.rotation.y = -o * 1.5;
     }
     if (G.state === 'intro') {
       G.introT += dt;
-      if (G.introT > 5.0) { G.state = 'explore'; const i = world.colliders.indexOf(world.gateCollider); if (i >= 0) world.colliders.splice(i, 1); updateObjective(); setTimeout(() => G.state === 'explore' && say(INTRO_LINES[2], 3600), 800); }
+      if (G.introT > 5.0 && G.introDone) { G.state = 'explore'; world.gate.left.rotation.y = 1.5; world.gate.right.rotation.y = -1.5; const i = world.colliders.indexOf(world.gateCollider); if (i >= 0) world.colliders.splice(i, 1); updateObjective(); setTimeout(() => G.state === 'explore' && sayWait(INTRO_LINES[2]), 800); }
     }
     if (G.state === 'opening') {
       G.openT += dt + (G.fastOpen ? 5 : 0);
@@ -1027,7 +1072,7 @@
     teleportToActive() { const t = world.specials[G.activeIdx]; G.p.x = t.x; G.p.z = t.z + 5.2; G.p.yaw = 0; },
     killAll() { G.ghosts.slice().forEach(g => damageGhost(g, 99999, true)); },
     hit(n) { G.ghosts.forEach(g => damageGhost(g, n, false)); },
-    skipIntro() { G.introT = 5.1; },
+    skipIntro() { G.introT = 5.1; G.gateOpening = true; G.gateT = 4; G.introDone = true; G.introTok = (G.introTok || 0) + 1; },
     face(x, z) { G.p.yaw = Math.atan2(-(x - G.p.x), -(z - G.p.z)); },
     end(win) { showEnd(win); },
     fire() { fire(G.t); },
