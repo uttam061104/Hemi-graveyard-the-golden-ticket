@@ -19,7 +19,7 @@ const Chain = (function () {
     chainName: 'Hemi',
     rpcUrls: ['https://rpc.hemi.network/rpc'],
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    blockExplorerUrls: ['https://explorer.hemi.network']
+    blockExplorerUrls: ['https://explorer.hemi.xyz']
   };
 
   const WALLETS = {
