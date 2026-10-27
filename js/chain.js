@@ -4,7 +4,8 @@ const Chain = (function () {
   /* ------------------------------------------------------------------
      CONFIG — the only part you should ever need to edit
      ------------------------------------------------------------------ */
-  const CONTRACT_ADDRESS = '0xfd0Db1B4F606D0B5D50b12AA98bcA6744868EC12';
+  // >>> After deploying the NEW contract, paste its address between the quotes on the next line <<<
+  const CONTRACT_ADDRESS = '0xadDb40da2AF99F0494E8BE0Bb0B6c8ECA6d79d0D';
 
   // Function the game calls on your contract. MUST match your Solidity function exactly.
   // The args below are filled in this order from the game result:
@@ -13,6 +14,13 @@ const Chain = (function () {
     signature: 'submitScore(string,uint32,uint16,uint16,uint32)',
     args: ['name', 'score', 'graves', 'kills', 'time']
   };
+
+  // Start-of-game transaction: calls your contract (submitScore with all zeros) to mark "this player started a run".
+  // The player pays only the tiny network gas. Set to false to turn the start transaction off.
+  const REQUIRE_START_TX = true;
+
+  // Function called when a player presses "Enter the Graveyard" (separate from submitScore).
+  const START_FN = { signature: 'startGame(string)' };
 
   const HEMI = {
     chainId: '0x' + (43111).toString(16),            // 0xa867 — Hemi Mainnet
@@ -83,6 +91,14 @@ const Chain = (function () {
       } else throw new Error('Unsupported ABI type: ' + t);
     });
     return '0x' + selector + head + tail;
+  }
+  function cleanName(n) {   // contract requires 1–20 BYTES
+    let c = String(n || '').replace(/[\n\r]/g, ' ').trim() || 'anon';
+    while (new TextEncoder().encode(c).length > 20) c = c.slice(0, -1);
+    return c;
+  }
+  function assertContractSet() {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(CONTRACT_ADDRESS)) throw new Error('Contract address is not set in js/chain.js');
   }
   const FN_TYPES = CONTRACT_FN.signature.slice(CONTRACT_FN.signature.indexOf('(') + 1, -1).split(',').filter(Boolean);
 
@@ -162,10 +178,9 @@ const Chain = (function () {
     /* Calls the score contract on Hemi Mainnet. value is always 0 — the game is free, players only pay network gas. */
     async submitScore(r) {
       if (!active || !account) throw new Error('Wallet not connected');
+      assertContractSet();
       await ensureHemi();
-      // Contract requires the name to be 1–20 BYTES, so trim by bytes (emoji / non-English letters use more than 1 byte).
-      let clean = String(r.name || '').replace(/[\n\r]/g, ' ').trim() || 'anon';
-      while (new TextEncoder().encode(clean).length > 20) clean = clean.slice(0, -1);
+      const clean = cleanName(r.name);
       const vals = CONTRACT_FN.args.map(a => a === 'name' ? clean : r[a]);
       const data = encodeCall(CONTRACT_FN.signature, FN_TYPES, vals);
       const tx = { from: account, to: CONTRACT_ADDRESS, value: '0x0', data };
@@ -173,6 +188,22 @@ const Chain = (function () {
       catch (err) {
         if (err && err.code === 4001) throw err;
         throw new Error('The contract rejected this call (function/arguments mismatch or revert). ' + ((err && err.message) || ''));
+      }
+      const hash = await active.request({ method: 'eth_sendTransaction', params: [tx] });
+      return { hash };
+    },
+    /* Start-of-run transaction, sent to YOUR contract: startGame(name). value is 0 — the player pays only network gas. */
+    REQUIRE_START_TX,
+    async startGameTx(name) {
+      if (!active || !account) throw new Error('Wallet not connected');
+      assertContractSet();
+      await ensureHemi();
+      const data = encodeCall(START_FN.signature, ['string'], [cleanName(name)]);
+      const tx = { from: account, to: CONTRACT_ADDRESS, value: '0x0', data };
+      try { await active.request({ method: 'eth_estimateGas', params: [tx] }); }
+      catch (err) {
+        if (err && err.code === 4001) throw err;
+        throw new Error('The contract rejected the start call. ' + ((err && err.message) || ''));
       }
       const hash = await active.request({ method: 'eth_sendTransaction', params: [tx] });
       return { hash };
@@ -186,3 +217,4 @@ const Chain = (function () {
     }
   };
 })();
+
