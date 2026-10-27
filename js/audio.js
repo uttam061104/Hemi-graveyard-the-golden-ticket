@@ -368,10 +368,14 @@ const SFX = (function () {
     click() { tone({ type: 'sine', f0: 600, f1: 300, dur: 0.06, vol: 0.12 }); },
 
     /* ---- spoken / whispered ghost voice ---- */
+    /* Returns a Promise that resolves when the line has FINISHED being spoken (or its estimated duration has passed),
+       so callers can play dialogue one line after another without cutting each other off. */
     say(text, dur) {
-      if (!ctx) return;
+      const estMs = Math.max(3000, text.length * 105);                 // reading/speech time estimate at the slow ghost rate
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      if (!ctx) return wait(estMs);
       const vc = window.VOICE_CLIPS && window.VOICE_CLIPS[text];   // Rickoala (boss): natural pre-rendered clip
-      if (vc) { if (voiceOn) { try { speechSynthesis.cancel(); } catch (e) { } playClip(vc.f, vc.d, vc.who); } return; }
+      if (vc) { if (voiceOn) { try { speechSynthesis.cancel(); } catch (e) { } playClip(vc.f, vc.d, vc.who); } return wait((vc.d || 4) * 1000 + 300); }
       const t0 = ctx.currentTime, syl = Math.max(4, Math.round(text.length / 2.6));
       const total = dur || Math.min(6, syl * 0.14);
       for (let i = 0; i < syl; i++) {
@@ -380,15 +384,22 @@ const SFX = (function () {
       }
       tone({ t: t0, type: 'sawtooth', f0: 85, f1: 70, dur: total, vol: 0.05, filter: ['lowpass', 260, 1], vib: [5, 4], rev: 0.5 });
       if (voiceOn && 'speechSynthesis' in window) {
-        try {
-          const u = new SpeechSynthesisUtterance(text);
-          u.pitch = 0.1; u.rate = 0.62; u.volume = 0.8;
-          const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
-          const pick = vs.find(v => /male|daniel|david|alex|google uk english male/i.test(v.name)) || vs[0];
-          if (pick) u.voice = pick;
-          speechSynthesis.cancel(); speechSynthesis.speak(u);
-        } catch (e) { /* speech not available */ }
+        return new Promise(resolve => {
+          let done = false;
+          const finish = () => { if (!done) { done = true; clearTimeout(guard); resolve(); } };
+          const guard = setTimeout(finish, estMs * 1.8 + 2000);        // safety: some browsers never fire onend
+          try {
+            const u = new SpeechSynthesisUtterance(text);
+            u.pitch = 0.1; u.rate = 0.62; u.volume = 0.8;
+            const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+            const pick = vs.find(v => /male|daniel|david|alex|google uk english male/i.test(v.name)) || vs[0];
+            if (pick) u.voice = pick;
+            u.onend = finish; u.onerror = finish;
+            speechSynthesis.cancel(); speechSynthesis.speak(u);
+          } catch (e) { finish(); }
+        });
       }
+      return wait(estMs);
     },
 
     /* ---- ambience & music ---- */
