@@ -69,7 +69,7 @@ const SPECIAL = [
   { name: 'MAX', rank: 2, x: 32, z: -34 },
   { name: 'JEFF', rank: 1, x: 0, z: -54 }
 ];
-const COMMUNITY = ['alix', 'anuboobies', 'alpha', 'funky', 'ajjet', 'avijit', 'creator', 'foxstar', 'yahuze', 'liko', 'hexusian', 'tee', 'omni', 'exca', 'samstar', 'fake chinese'];
+const COMMUNITY = ['alix', 'anuboobies', 'alpha', 'funky', 'ajeet', 'avijit', 'creator', 'foxstar', 'yahuze', 'liko', 'hexusian', 'tee', 'omni', 'exca', 'samstar', 'fake chinese'];
 const BOUNDS = { x: 60, zMin: -70, zMax: 70 };
 const ROADS = [ // [x1,z1,x2,z2,width]
   [0, 96, 0, -50, 4.2],
